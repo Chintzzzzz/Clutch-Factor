@@ -2,7 +2,7 @@ library(glmnet)
 library(dplyr)
 library(tibble)
 library(tidyverse)
-# Prepare training data (season 1)
+
 ridge_train <- temp1_75 %>%
   select(player.id, clutch_factor_scaled, shot.statsbomb_xg, shot.statsbomb_xga, is_penalty_won,
          is_winning_goal, is_equalizer, is_goal_when_losing, is_winning_assist,
@@ -22,7 +22,7 @@ print(paste("Best lambda:", best_lambda))
 
 final_model <- glmnet(X_train, Y_train, alpha = 0, lambda = best_lambda, standardize = TRUE)
 
-# Prepare test data (season 2)
+
 ridge_test <- temp_75 %>%
   select(player.id, clutch_factor_scaled, shot.statsbomb_xg, shot.statsbomb_xga, is_penalty_won,
          is_winning_goal, is_equalizer, is_goal_when_losing, is_winning_assist,
