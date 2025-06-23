@@ -163,49 +163,7 @@ View(top_barca_players2)
 
 
 
-# Load necessary libraries
-library(glmnet)
-library(tidyverse)
-
-# Select relevant predictor variables
-ridge_data2 <- temp2_75 %>%
-  select(
-    clutch_factor_scaled, shot.statsbomb_xg, shot.statsbomb_xga, is_penalty_won,
-    is_winning_goal, is_equalizer, is_goal_when_losing, is_winning_assist,
-    is_equalizer_assist, is_assist_when_losing, is_substitution, opponent_difficulty,
-    is_away, sub_boost, red_card_boost, away_boost, opponent_boost
-  ) %>%
-  na.omit()  # Remove NA values
-
-# Separate predictors (X) and target (Y)
-X2 <- as.matrix(ridge_data2 %>% select(-clutch_factor_scaled))  # Predictor variables
-Y2 <- ridge_data2$clutch_factor_scaled  # Target variable
-
-# Define a sequence of lambda values for ridge regression
-lambda_seq <- 10^seq(3, -3, by = -0.1)  # From 1000 to 0.001
-
-# Fit ridge regression model using cross-validation
-set.seed(123)
-ridge_model2 <- cv.glmnet(X2, Y2, alpha = 0, lambda = lambda_seq, standardize = TRUE)
-
-# Get best lambda (optimal penalty)
-best_lambda2 <- ridge_model2$lambda.min
-print(paste("Best lambda:", best_lambda2))
-
-# Fit final ridge model with best lambda
-final_ridge2 <- glmnet(X2, Y2, alpha = 0, lambda = best_lambda2, standardize = TRUE)
-
-# Predictions on the same dataset
-predictions2 <- predict(final_ridge2, X2)
-
-# Calculate R² (coefficient of determination)
-sst2 <- sum((Y2 - mean(Y2))^2)  # Total sum of squares
-sse2 <- sum((Y2 - predictions2)^2)  # Sum of squared errors
-r2_2 <- 1 - (sse2 / sst2)  # R² formula
-
-print(paste("R² Value:", r2_2))
-
-#######Clustering##########
+#######Combining Data##########
 # Find common columns across all three datasets
 common_cols <- Reduce(intersect, list(names(temp_75), names(temp1_75), names(temp2_75)))
 
@@ -224,65 +182,3 @@ temp_75_all <- rbind(temp_75_common, temp1_75_common, temp2_75_common)
 str(combined_data)
 #sum(temp_75$is_winning_assist)
 
-library(mclust)
-library(ggplot2)
-
-
-# Select relevant features for clustering
-clustering_data <- temp_75_all %>%
-  select(clutch_factor_scaled, shot.statsbomb_xg, shot.statsbomb_xga, 
-         away_boost, opponent_boost, is_penalty_won, is_winning_goal, 
-         is_equalizer, is_goal_when_losing, is_winning_assist, 
-         is_equalizer_assist, is_assist_when_losing, 
-         sub_boost, red_card_boost) %>%
-  na.omit()
-
-# Remove constant columns
-clustering_data <- clustering_data %>%
-  select(-where(~ var(., na.rm = TRUE) < 1e-4))
-
-robust_scaler <- function(x) {
-  (x - median(x)) / IQR(x)
-}
-clustering_data_scaled <- clustering_data %>% mutate(across(where(is.numeric), robust_scaler))
-
-# Remove problematic rows (if any)
-clustering_data_scaled <- clustering_data_scaled[!rowSums(is.nan(clustering_data_scaled) | is.infinite(clustering_data_scaled)), ]
-
-# Fit GMM model and let it choose the optimal number of clusters
-gmm_model <- Mclust(clustering_data_scaled)
-
-# Print summary of the model
-summary(gmm_model)
-
-# Extract cluster assignments
-clustering_data$cluster <- gmm_model$classification
-
-# Visualize the clustering results
-library(ggplot2)
-library(factoextra)
-
-fviz_cluster(list(data = clustering_data_scaled, cluster = gmm_model$classification), 
-             ellipse.type = "norm", geom = "point", 
-             ggtheme = theme_minimal())
-
-# Save clustering results for further analysis
-head(clustering_data)
-
-# Perform PCA on numeric_data2
-pca_result <- prcomp(numeric_data2, scale. = TRUE)
-
-# Extract PC1 scores
-pc1_scores <- pca_result$x[, 1]  # First column is PC1
-
-# Ensure matching rows for clutch_factor_scaled
-valid_rows <- which(complete.cases(numeric_data2))
-filtered_clutch_factor <- combined_data$clutch_factor_scaled[valid_rows]
-
-# Check correlation
-correlation <- cor(pc1_scores, filtered_clutch_factor)
-print(paste("Correlation between PC1 and clutch_factor_scaled:", correlation))
-
-# Regression: PC1 predicting clutch_factor_scaled
-pc1_model <- lm(filtered_clutch_factor ~ pc1_scores)
-summary(pc1_model)
